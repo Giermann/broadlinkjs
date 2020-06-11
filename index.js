@@ -11,96 +11,96 @@ var Broadlink = module.exports = function(){
 util.inherits(Broadlink, EventEmitter);
 
 
-Broadlink.prototype.genDevice = function (devtype, host, mac){
+Broadlink.prototype.genDevice = function(devtype, host, mac) {
     var dev;
     if(devtype == 0){ // SP1
-        dev = new device(host,mac);
+        dev = new device(devtype, host, mac);
         dev.sp1();
-        return dev;;
+        return dev;
     }else if(devtype == 0x2711){ // SP2
-        dev = new device(host,mac);
+        dev = new device(devtype, host, mac);
         dev.sp2();
-        return dev;;
+        return dev;
     }else if(devtype == 0x2719 || devtype == 0x7919 || devtype == 0x271a || devtype == 0x791a){ // Honeywell SP2
-        dev = new device(host,mac);
+        dev = new device(devtype, host, mac);
         dev.sp2();
-        return dev;;
+        return dev;
     }else if(devtype == 0x2720){ // SPMini
-        dev = new device(host,mac);
+        dev = new device(devtype, host, mac);
         dev.sp2();
-        return dev;;
+        return dev;
     }else if(devtype == 0x753e){ // SP3
-        dev = new device(host,mac);
+        dev = new device(devtype, host, mac);
         dev.sp2();
-        return dev;;
+        return dev;
     }else if(devtype == 0x2728){ // SPMini2
-        dev = new device(host,mac);
+        dev = new device(devtype, host, mac);
         dev.sp2();
-        return dev;;
+        return dev;
     }else if(devtype == 0x2733 || devtype == 0x273e){ // OEM branded SPMini
-        dev = new device(host,mac);
+        dev = new device(devtype, host, mac);
         dev.sp2();
-        return dev;;
+        return dev;
     }else if(devtype >= 0x7530 && devtype <= 0x7918){ // OEM branded SPMini2
-        dev = new device(host,mac);
+        dev = new device(devtype, host, mac);
         dev.sp2();
-        return dev;;
+        return dev;
     }else if(devtype == 0x2736){ // SPMiniPlus
-        dev = new device(host,mac);
+        dev = new device(devtype, host, mac);
         dev.sp2();
-        return dev;;
+        return dev;
     }else if(devtype == 0x2712){ // RM2
-        dev = new device(host,mac);
+        dev = new device(devtype, host, mac);
         dev.rm();
-        return dev;;
+        return dev;
     }else if(devtype == 0x2737){ // RM Mini
-        dev = new device(host,mac);
+        dev = new device(devtype, host, mac);
         dev.rm();
-        return dev;;
+        return dev;
     }else if(devtype == 0x273d){ // RM Pro Phicomm
-        dev = new device(host,mac);
+        dev = new device(devtype, host, mac);
         dev.rm();
-        return dev;;
+        return dev;
     }else if(devtype == 0x2783){ // RM2 Home Plus
-        dev = new device(host,mac);
+        dev = new device(devtype, host, mac);
         dev.rm();
-        return dev;;
+        return dev;
     }else if(devtype == 0x277c){ // RM2 Home Plus GDT
-        dev = new device(host,mac);
+        dev = new device(devtype, host, mac);
         dev.rm();
-        return dev;;
+        return dev;
     }else if(devtype == 0x272a){ // RM2 Pro Plus
-        dev = new device(host,mac);
+        dev = new device(devtype, host, mac);
         dev.rm();
-        return dev;;
+        return dev;
     }else if(devtype == 0x2787){ // RM2 Pro Plus2
-        dev = new device(host,mac);
+        dev = new device(devtype, host, mac);
         dev.rm();
-        return dev;;
+        return dev;
     }else if(devtype == 0x278b){ // RM2 Pro Plus BL
-        dev = new device(host,mac);
+        dev = new device(devtype, host, mac);
         dev.rm();
-        return dev;;
+        return dev;
     }else if(devtype == 0x278f){ // RM Mini Shate
-        dev = new device(host,mac);
+        dev = new device(devtype, host, mac);
         dev.rm();
-        return dev;;
+        return dev;
     }else if(devtype == 0x2714){ // A1
-        dev = new device(host,mac);
+        dev = new device(devtype, host, mac);
         dev.a1();
-        return dev;;
+        return dev;
     }else if(devtype == 0x4EB5){ // MP1
-        dev = new device(host,mac);
+        dev = new device(devtype, host, mac);
         dev.mp1();
-        return dev;;
+        return dev;
     }else if(devtype == 0x4EAD){ // Hysen
-        dev = new device(host,mac);
+        dev = new device(devtype, host, mac);
         dev.hysen();
-        return dev;;
+        return dev;
     }else{
-        dev = new device(host,mac);
+        dev = new device(devtype, host, mac);
 //--        dev.device();
-        return dev;;
+        return dev;
     }
 }
 
@@ -195,8 +195,9 @@ Broadlink.prototype.discover = function(){
 }
 
 
-function device( host, mac, timeout){
+function device(devtype, host, mac, timeout){
     var self = this;
+    this.devtype = devtype;
     this.host = host;
     this.mac = mac;
     this.emitter = new EventEmitter();
@@ -286,6 +287,14 @@ device.prototype.auth = function(){
 
 device.prototype.getType = function(){
     return this.type;
+}
+
+device.prototype.getDevType = function(){
+    return this.devtype;
+}
+
+device.prototype.getMAC = function(){
+    return this.mac;
 }
 
 device.prototype.sendPacket = function( command, payload){
