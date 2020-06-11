@@ -1,23 +1,23 @@
 'use strict';
-let broadlink = require('broadlinkjs');
-let fs = require('fs');
+var broadlink = require('broadlinkjs');
+var fs = require('fs');
 
 var b = new broadlink();
 
-b.on("deviceReady", (dev) => {
+b.on("deviceReady", function(dev) {
     var devType = dev.getType();
-    if (devType() == "RM2") {
+    if (devType == "RM2") {
         var timer = setInterval(function(){
             console.log("send check!");
             dev.checkData();
         }, 1000);
 
-        dev.on("temperature", (temp)=>{
+        dev.on("temperature", function(temp) {
             console.log("get temp "+temp);
             dev.enterLearning();
         });
 
-        dev.on("rawData", (data) => {
+        dev.on("rawData", function(data) {
             fs.writeFile("test1", data, function(err) {
                 if(err) {
                     return console.log(err);
@@ -27,7 +27,7 @@ b.on("deviceReady", (dev) => {
             }); 
         });
         dev.checkTemperature();
-    } else if (devType() == "Hysen heating controller") {
+    } else if (devType == "Hysen heating controller") {
         dev.on("status", function(status) {
             console.log(JSON.stringify(status));
         });
