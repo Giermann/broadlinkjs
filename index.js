@@ -1,8 +1,8 @@
 var util = require('util');
-let EventEmitter = require('events');
-let dgram = require('dgram');
-let os = require('os');
-let crypto = require('crypto');
+var EventEmitter = require('events').EventEmitter;
+var dgram = require('dgram');
+var os = require('os');
+var crypto = require('crypto');
 
 var Broadlink = module.exports = function(){
     EventEmitter.call(this);
@@ -93,15 +93,19 @@ Broadlink.prototype.genDevice = function (devtype, host, mac){
         dev = new device(host,mac);
         dev.mp1();
         return dev;;
+    }else if(devtype == 0x4EAD){ // Hysen
+        dev = new device(host,mac);
+        dev.hysen();
+        return dev;;
     }else{
         dev = new device(host,mac);
-        dev.device();
+//--        dev.device();
         return dev;;
     }
 }
 
 Broadlink.prototype.discover = function(){
-    self = this;
+    var self = this;
     var interfaces = os.networkInterfaces();
     var addresses = [];
     for (var k in interfaces) {
@@ -114,7 +118,7 @@ Broadlink.prototype.discover = function(){
     }
     var address = addresses[0].split('.');
 
-    var cs = dgram.createSocket({ type:'udp4', reuseAddr:true});
+    var cs = dgram.createSocket('udp4');
     cs.on('listening', function(){
         cs.setBroadcast(true);
 
@@ -123,7 +127,8 @@ Broadlink.prototype.discover = function(){
         var starttime = now.getTime();
 
         var timezone = now.getTimezoneOffset()/-3600;
-        var packet = Buffer.alloc(0x30,0);
+        var packet = new Buffer(0x30);
+        packet.fill(0);
 
         var year = now.getYear();
 
@@ -167,20 +172,21 @@ Broadlink.prototype.discover = function(){
 
     });
 
-    cs.on("message", (msg, rinfo) => {
+    cs.on("message", function(msg, rinfo) {
         var host = rinfo;
-        var mac = Buffer.alloc(6,0);
+        var mac = new Buffer(6);
+        mac.fill(0);
         //mac = msg[0x3a:0x40];
         msg.copy(mac, 0, 0x34, 0x40);
         var devtype = msg[0x34] | msg[0x35] << 8;
-        if(!this.devices){
-            this.devices = {};
+        if(!self.devices){
+            self.devices = {};
         }
 
-        if(!this.devices[mac]){
-            var dev =  this.genDevice(devtype, host, mac);
-            this.devices[mac] = dev;
-            dev.on("deviceReady", () => { this.emit("deviceReady", dev); });
+        if(!self.devices[mac]){
+            var dev =  self.genDevice(devtype, host, mac);
+            self.devices[mac] = dev;
+            dev.on("deviceReady", function() { self.emit("deviceReady", dev); });
             dev.auth();
         }
     });
@@ -188,7 +194,9 @@ Broadlink.prototype.discover = function(){
     cs.bind();
 }
 
-function device( host, mac, timeout=10){
+
+function device( host, mac, timeout){
+    var self = this;
     this.host = host;
     this.mac = mac;
     this.emitter = new EventEmitter();
@@ -197,20 +205,21 @@ function device( host, mac, timeout=10){
     this.emit = this.emitter.emit;
     this.removeListener = this.emitter.removeListener;
 
-    this.timeout = timeout;
+    this.timeout = timeout || 10;
     this.count = Math.random()&0xffff;
     this.key = new Buffer([0x09, 0x76, 0x28, 0x34, 0x3f, 0xe9, 0x9e, 0x23, 0x76, 0x5c, 0x15, 0x13, 0xac, 0xcf, 0x8b, 0x02]);
     this.iv = new Buffer([0x56, 0x2e, 0x17, 0x99, 0x6d, 0x09, 0x3d, 0x28, 0xdd, 0xb3, 0xba, 0x69, 0x5a, 0x2e, 0x6f, 0x58]);
     this.id = new Buffer([0, 0, 0, 0]);
-    this.cs = dgram.createSocket({ type:'udp4', reuseAddr:true});
+    this.cs = dgram.createSocket('udp4');
     this.cs.on('listening', function(){
         //this.cs.setBroadcast(true);
     });
-    this.cs.on("message", (response, rinfo) => {
-        var enc_payload = Buffer.alloc(response.length-0x38,0);
+    this.cs.on("message", function(response, rinfo) {
+        var enc_payload = new Buffer(response.length-0x38);
+        enc_payload.fill(0);
         response.copy(enc_payload, 0, 0x38);
 
-        var decipher = crypto.createDecipheriv('aes-128-cbc', this.key, this.iv);
+        var decipher = crypto.createDecipheriv('aes-128-cbc', self.key, self.iv);
         decipher.setAutoPadding(false);
         var payload = decipher.update(enc_payload);
         var p2 = decipher.final();
@@ -228,14 +237,14 @@ function device( host, mac, timeout=10){
         if(err != 0) return;
 
         if(command == 0xe9){
-            this.key = Buffer.alloc(0x10,0);
-            payload.copy(this.key, 0, 0x04, 0x14);
+            self.key = new Buffer(0x10);
+            payload.copy(self.key, 0, 0x04, 0x14);
 
-            this.id = Buffer.alloc(0x04,0);
-            payload.copy(this.id, 0, 0x00, 0x04);
-            this.emit("deviceReady");
+            self.id = new Buffer(0x04);
+            payload.copy(self.id, 0, 0x00, 0x04);
+            self.emit("deviceReady");
         }else if (command == 0xee){
-            this.emit("payload", err, payload);
+            self.emit("payload", err, payload);
         }
 
     });
@@ -244,7 +253,8 @@ function device( host, mac, timeout=10){
 }
 
 device.prototype.auth = function(){
-    var payload = Buffer.alloc(0x50,0);
+    var payload = new Buffer(0x50);
+    payload.fill(0);
     payload[0x04] = 0x31;
     payload[0x05] = 0x31;
     payload[0x06] = 0x31;
@@ -280,7 +290,8 @@ device.prototype.getType = function(){
 
 device.prototype.sendPacket = function( command, payload){
     this.count = (this.count + 1) & 0xffff;
-    var packet = Buffer.alloc(0x38,0);
+    var packet = new Buffer(0x38);
+    packet.fill(0);
     packet[0x00] = 0x5a;
     packet[0x01] = 0xa5;
     packet[0x02] = 0xaa;
@@ -304,6 +315,9 @@ device.prototype.sendPacket = function( command, payload){
     packet[0x31] = this.id[1];
     packet[0x32] = this.id[2];
     packet[0x33] = this.id[3];
+
+    // SG, 09.06.2020 - pad the payload for AES encryption
+    payload = Buffer.concat([payload, new Buffer((16 - payload.length) % 16)]);
 
     var checksum = 0xbeaf;
     for (var i = 0 ; i < payload.length; i++){
@@ -331,12 +345,15 @@ device.prototype.sendPacket = function( command, payload){
     this.cs.sendto(packet, 0, packet.length, this.host.port, this.host.address);
 }
 
+
 device.prototype.mp1 = function(){
+    var self = this;
     this.type = "MP1";
     this.prototype.set_power_mask = function(sid_mask, state){
         //"""Sets the power state of the smart power strip."""
 
-        var packet = Buffer.alloc(16,0);
+        var packet = new Buffer(16);
+        packet.fill(0);
         packet[0x00] = 0x0d;
         packet[0x02] = 0xa5;
         packet[0x03] = 0xa5;
@@ -349,13 +366,13 @@ device.prototype.mp1 = function(){
         packet[0x0d] = sid_mask;
         packet[0x0e] = state?sid_mask:0;
 
-        this.sendPacket(0x6a, packet);
+        self.sendPacket(0x6a, packet);
     }
 
     this.set_power = function(sid, state){
         //"""Sets the power state of the smart power strip."""
         var sid_mask = 0x01 << (sid - 1);
-        this.set_power_mask(sid_mask, state);
+        self.set_power_mask(sid_mask, state);
     }
     this.check_power_raw = function(){
         //"""Returns the power state of the smart power strip in raw format."""
@@ -369,11 +386,11 @@ device.prototype.mp1 = function(){
         packet[0x07] = 0xc0;
         packet[0x08] = 0x01;
 
-        this.sendPacket(0x6a, packet);
+        self.sendPacket(0x6a, packet);
         /*
            err = response[0x22] | (response[0x23] << 8);
            if(err == 0){
-           aes = AES.new(bytes(this.key), AES.MODE_CBC, bytes(self.iv));
+           aes = AES.new(bytes(self.key), AES.MODE_CBC, bytes(self.iv));
            payload = aes.decrypt(bytes(response[0x38:]));
            if(type(payload[0x4]) == int){
            state = payload[0x0e];
@@ -388,7 +405,7 @@ device.prototype.mp1 = function(){
     this.check_power = function() {
         //"""Returns the power state of the smart power strip."""
         /*
-           state = this.check_power_raw();
+           state = self.check_power_raw();
            data = {};
            data['s1'] = bool(state & 0x01);
            data['s2'] = bool(state & 0x02);
@@ -403,35 +420,39 @@ device.prototype.mp1 = function(){
 
 
 device.prototype.sp1 = function(){
+    var self = this;
     this.type = "SP1";
     this.set_power = function (state){
-        var packet = Buffer.alloc(4,4);
+        var packet = new Buffer(4);
+        packet.fill(4);
         packet[0] = state;
-        this.sendPacket(0x66, packet);
+        self.sendPacket(0x66, packet);
     }
 }
 
 
-
 device.prototype.sp2 = function(){
+    var self = this;
     this.type = "SP2";
     this.set_power = function(state){
         //"""Sets the power state of the smart plug."""
-        var packet = Buffer.alloc(16,0);
+        var packet = new Buffer(16);
+        packet.fill(0);
         packet[0] = 2;
         packet[4] = state?1:0;
-        this.sendPacket(0x6a, packet);
+        self.sendPacket(0x6a, packet);
     }
 
     this.check_power = function(){
         //"""Returns the power state of the smart plug."""
-        var packet = Buffer.alloc(16,0);
+        var packet = new Buffer(16);
+        packet.fill(0);
         packet[0] = 1;
-        this.sendPacket(0x6a, packet);
+        self.sendPacket(0x6a, packet);
         /*
            err = response[0x22] | (response[0x23] << 8);
            if(err == 0){
-           aes = AES.new(bytes(this.key), AES.MODE_CBC, bytes(self.iv));
+           aes = AES.new(bytes(self.key), AES.MODE_CBC, bytes(self.iv));
            payload = aes.decrypt(bytes(response[0x38:]));
            return bool(payload[0x4]);
            }
@@ -441,17 +462,20 @@ device.prototype.sp2 = function(){
 
 }
 
+
 device.prototype.a1 = function(){
+    var self = this;
     this.type = "A1";
     this.check_sensors = function(){
-        var packet = Buffer.alloc(16,0);
+        var packet = new Buffer(16);
+        packet.fill(0);
         packet[0] = 1;
-        this.sendPacket(0x6a, packet);
+        self.sendPacket(0x6a, packet);
         /*
            err = response[0x22] | (response[0x23] << 8);
            if(err == 0){
            data = {};
-           aes = AES.new(bytes(this.key), AES.MODE_CBC, bytes(self.iv));
+           aes = AES.new(bytes(self.key), AES.MODE_CBC, bytes(self.iv));
            payload = aes.decrypt(bytes(response[0x38:]));
            if(type(payload[0x4]) == int){
            data['temperature'] = (payload[0x4] * 10 + payload[0x5]) / 10.0;
@@ -503,14 +527,15 @@ device.prototype.a1 = function(){
     }
 
     this.check_sensors_raw = function(){
-        var packet = Buffer.alloc(16,0);
+        var packet = new Buffer(16);
+        packet.fill(0);
         packet[0] = 1;
-        this.sendPacket(0x6a, packet);
+        self.sendPacket(0x6a, packet);
         /*
            err = response[0x22] | (response[0x23] << 8);
            if(err == 0){
            data = {};
-           aes = AES.new(bytes(this.key), AES.MODE_CBC, bytes(self.iv));
+           aes = AES.new(bytes(self.key), AES.MODE_CBC, bytes(self.iv));
            payload = aes.decrypt(bytes(response[0x38:]));
            if(type(payload[0x4]) == int){
            data['temperature'] = (payload[0x4] * 10 + payload[0x5]) / 10.0;
@@ -533,42 +558,47 @@ device.prototype.a1 = function(){
 
 
 device.prototype.rm = function(){
+    var self = this;
     this.type = "RM2";
     this.checkData = function(){
-        var packet = Buffer.alloc(16,0);
+        var packet = new Buffer(16);
+        packet.fill(0);
         packet[0] = 4;
-        this.sendPacket(0x6a, packet);
+        self.sendPacket(0x6a, packet);
     }
 
     this.sendData = function(data){
         packet = new Buffer([0x02, 0x00, 0x00, 0x00]);
         packet = Buffer.concat([packet, data]);
-        this.sendPacket(0x6a, packet);
+        self.sendPacket(0x6a, packet);
     }
 
     this.enterLearning = function(){
-        var packet = Buffer.alloc(16,0);
+        var packet = new Buffer(16);
+        packet.fill(0);
         packet[0] = 3;
-        this.sendPacket(0x6a, packet);
+        self.sendPacket(0x6a, packet);
     }
 
     this.checkTemperature = function(){
-        var packet = Buffer.alloc(16,0);
+        var packet = new Buffer(16);
+        packet.fill(0);
         packet[0] = 1;
-        this.sendPacket(0x6a, packet);
+        self.sendPacket(0x6a, packet);
     }
 
-    this.on("payload", (err, payload) => {
+    this.on("payload", function(err, payload) {
         var param = payload[0];
         switch (param){
             case 1:
                 var temp = (payload[0x4] * 10 + payload[0x5]) / 10.0;
-                this.emit("temperature", temp);
+                self.emit("temperature", temp);
                 break;
             case 4: //get from check_data
-                var data = Buffer.alloc(payload.length - 4,0);
+                var data = new Buffer(payload.length - 4);
+                data.fill(0);
                 payload.copy(data, 0, 4);
-                this.emit("rawData", data);
+                self.emit("rawData", data);
                 break;
             case 3:
                 break;
@@ -578,3 +608,93 @@ device.prototype.rm = function(){
     });
 }
 
+device.prototype.hysen = function(){
+    var self = this;
+    this.type = "Hysen heating controller";
+
+    this.calculateCRC16 = function(buffer) {
+        var crc = 0xFFFF;
+        var odd;
+        for (var i = 0; i < buffer.length; i++) {
+            crc = crc ^ buffer[i];
+            for (var j = 0; j < 8; j++) {
+                odd = crc & 0x0001;
+                crc = crc >> 1;
+                if (odd) crc = crc ^ 0xA001;
+            }
+        }
+        return crc;
+    }
+
+    this.sendRequest = function(input_payload) {
+        var crc = self.calculateCRC16(input_payload);
+        var request_payload = Buffer.concat([
+            new Buffer([input_payload.length + 2, 0]),
+            input_payload,
+            new Buffer([crc & 0xFF, (crc >> 8) & 0xFF])
+        ]);
+
+        self.sendPacket(0x6a, request_payload);
+    }
+
+    this.getStatus = function() {
+        self.sendRequest(new Buffer([0x01, 0x03, 0x00, 0x00, 0x00, 0x08]));  // CRC16 = 3140 [0x0C44]
+    }
+
+    this.getFullStatus = function() {
+        self.sendRequest(new Buffer([0x01, 0x03, 0x00, 0x00, 0x00, 0x16]));  // CRC16 = 1220 [0x04C4]
+    }
+
+    this.checkTemperature = this.getStatus;
+    this.checkExternalTemperature = this.getStatus;
+
+    this.on("payload", function(err, payload) {
+        //console.log('on payload: ' + payload.toString('hex'));
+/*
+        check_error(response[0x22:0x24])
+        response_payload = bytearray(self.decrypt(bytes(response[0x38:])))
+
+        # experimental check on CRC in response (first 2 bytes are len, and trailing bytes are crc)
+        response_payload_len = response_payload[0]
+        if response_payload_len + 2 > len(response_payload):
+            raise ValueError('hysen_response_error', 'first byte of response is not length')
+        crc = self.calculate_crc16(bytes(response_payload[2:response_payload_len]))
+        if (response_payload[response_payload_len] == crc & 0xFF) and (
+                response_payload[response_payload_len + 1] == (crc >> 8) & 0xFF):
+            return response_payload[2:response_payload_len]
+        raise ValueError('hysen_response_error', 'CRC check on response failed')
+*/
+        if (payload[0] > 0x30){ // && (payload[4] == 0x2c)
+            self.emit("fullstatus", {
+                hour:      payload[0x15],
+                min:       payload[0x16],
+                sec:       payload[0x17],
+                dayofweek: payload[0x18],
+                // 0x19..0x30 = 24 bytes for schedules ?
+                payload0x19:   (payload.slice(0x19, payload[0])).toString('hex'),
+            });
+        }
+        if (payload[0] > 0x14){ // && ((payload[4] == 0x2c) || (payload[4] == 0x10))
+            self.emit("status", {
+                remoteLock:   (payload[5] & 1),
+                power:        ( payload[6]     & 1),
+                active:       ((payload[6]>>4) & 1),
+                tempManual:   ((payload[6]>>6) & 1),
+                roomTemp:     (payload[7] / 2.0),
+                setTemp:      (payload[8] / 2.0),
+                autoMode:     ( payload[9]     & 0xf),
+                loopMode:     ((payload[9]>>4) & 0xf),
+                Sensor:        payload[0xa], // Sensor control option | 0:internal 1:external 2:internal w/ external limit | 0
+                osv:           payload[0xb], // Limit temperature value of external sensor | 5-99 | 42
+                dif:           payload[0xc], // Return difference of limit temperature value of external sensor | 1-9 | 2
+                svh:           payload[0xd], // Set upper limit temperature value | 5-99 | 35
+                svl:           payload[0xe], // Set lower limit temperature value | 5-99 | 5
+                roomTempAdj:(((payload[0xf]<<8) + payload[0x10]) / 2.0) - ((payload[0xf]&0x80) ? 0x8000 : 0),
+                fre:           payload[0x11],  // Anti-freezing function | 0:off 1:on | 0
+                powerOn:       payload[0x12],  // Power on memory | 0:Power on no need memory 1:Power on need memory | 0
+                payload0x13:   payload[0x13],
+                externalTemp: (payload[0x14] / 2.0)
+            });
+        }
+    });
+}
