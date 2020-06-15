@@ -679,14 +679,14 @@ device.prototype.hysen = function(){
                 min:       payload[0x16],
                 sec:       payload[0x17],
                 dayofweek: payload[0x18],
-                weekday:   [{hour: payload[0x19], min: payload[0x1a], temp: payload[0x29]},
-                            {hour: payload[0x1b], min: payload[0x1c], temp: payload[0x2a]},
-                            {hour: payload[0x1d], min: payload[0x1e], temp: payload[0x2b]},
-                            {hour: payload[0x1f], min: payload[0x20], temp: payload[0x2c]},
-                            {hour: payload[0x21], min: payload[0x22], temp: payload[0x2d]},
-                            {hour: payload[0x23], min: payload[0x24], temp: payload[0x2e]}],
-                weekend:   [{hour: payload[0x25], min: payload[0x26], temp: payload[0x2f]},
-                            {hour: payload[0x27], min: payload[0x28], temp: payload[0x30]}]
+                weekday:   [{hour: payload[0x19], min: payload[0x1a], temp: (payload[0x29] / 2.0)},
+                            {hour: payload[0x1b], min: payload[0x1c], temp: (payload[0x2a] / 2.0)},
+                            {hour: payload[0x1d], min: payload[0x1e], temp: (payload[0x2b] / 2.0)},
+                            {hour: payload[0x1f], min: payload[0x20], temp: (payload[0x2c] / 2.0)},
+                            {hour: payload[0x21], min: payload[0x22], temp: (payload[0x2d] / 2.0)},
+                            {hour: payload[0x23], min: payload[0x24], temp: (payload[0x2e] / 2.0)}],
+                weekend:   [{hour: payload[0x25], min: payload[0x26], temp: (payload[0x2f] / 2.0)},
+                            {hour: payload[0x27], min: payload[0x28], temp: (payload[0x30] / 2.0)}]
             });
         }
         if (payload[0] > 0x14){ // && ((payload[4] == 0x2c) || (payload[4] == 0x10))
