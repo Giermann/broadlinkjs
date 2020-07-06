@@ -177,7 +177,7 @@ Broadlink.prototype.discover = function(){
         var mac = new Buffer(6);
         mac.fill(0);
         //mac = msg[0x3a:0x40];
-        msg.copy(mac, 0, 0x34, 0x40);
+        msg.copy(mac, 0, 0x3a, 0x40);
         var devtype = msg[0x34] | msg[0x35] << 8;
         if(!self.devices){
             self.devices = {};
